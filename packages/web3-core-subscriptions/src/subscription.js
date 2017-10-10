@@ -254,44 +254,47 @@ Subscription.prototype.subscribe = function() {
             // call callback on notifications
             _this.options.requestManager.addSubscription(_this.id, payload.params[0] , _this.options.type, function(err, result) {
 
-                // TODO remove the length check once this is fixed in geth
-                var output;
-                if(_.isArray(result) && result.length > 1) {
-                    output = _.map(result, (function(r) { return _this._formatOutput(r); }));
-                } else {
-                    output = _.isArray(result) ? _this._formatOutput(result[0]) : _this._formatOutput(result);
-                }
+                function handleResult(err, output) {
+                    if (!err) {
 
-                if (!err) {
+                        if (_.isFunction(_this.options.subscription.subscriptionHandler)) {
+                            return _this.options.subscription.subscriptionHandler.call(_this, output);
+                        } else {
+                            _this.emit('data', output);
+                        }
 
-                    if(_.isFunction(_this.options.subscription.subscriptionHandler)) {
-                        return _this.options.subscription.subscriptionHandler.call(_this, output);
                     } else {
-                        _this.emit('data', output);
+                        // unsubscribe, but keep listeners
+                        _this.options.requestManager.removeSubscription(_this.id);
+
+                        // re-subscribe, if connection fails
+                        if (_this.options.requestManager.provider.once) {
+                            _this._reconnectIntervalId = setInterval(function () {
+                                // TODO check if that makes sense!
+                                _this.options.requestManager.provider.reconnect();
+                            }, 500);
+
+                            _this.options.requestManager.provider.once('connect', function () {
+                                clearInterval(_this._reconnectIntervalId);
+                                _this.subscribe(_this.callback);
+                            });
+                        }
+                        _this.emit('error', err);
                     }
 
-                } else {
-                    // unsubscribe, but keep listeners
-                    _this.options.requestManager.removeSubscription(_this.id);
-
-                    // re-subscribe, if connection fails
-                    if(_this.options.requestManager.provider.once) {
-                        _this._reconnectIntervalId = setInterval(function () {
-                            // TODO check if that makes sense!
-                            _this.options.requestManager.provider.reconnect();
-                        }, 500);
-
-                        _this.options.requestManager.provider.once('connect', function () {
-                            clearInterval(_this._reconnectIntervalId);
-                            _this.subscribe(_this.callback);
-                        });
+                    // call the callback, last so that unsubscribe there won't affect the emit above
+                    if (_.isFunction(_this.callback)) {
+                        _this.callback(err, output, _this);
                     }
-                    _this.emit('error', err);
-                }
 
-                // call the callback, last so that unsubscribe there won't affect the emit above
-                if (_.isFunction(_this.callback)) {
-                    _this.callback(err, output, _this);
+                    // TODO remove the length check once this is fixed in geth
+                    var output;
+                    if(_.isArray(result) && result.length > 1) {
+                        _.each(result, (function(r) { handleResult(err, _this._formatOutput(r)); }));
+                    } else {
+                        output = _.isArray(result) ? _this._formatOutput(result[0]) : _this._formatOutput(result);
+                        handleResult(err, output);
+                    }
                 }
             });
         } else if (_.isFunction(_this.callback)) {
