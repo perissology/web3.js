@@ -286,16 +286,16 @@ Subscription.prototype.subscribe = function() {
                     if (_.isFunction(_this.callback)) {
                         _this.callback(err, output, _this);
                     }
+				}
 
-                    // TODO remove the length check once this is fixed in geth
-                    var output;
-                    if(_.isArray(result) && result.length > 1) {
-                        _.each(result, (function(r) { handleResult(err, _this._formatOutput(r)); }));
-                    } else {
-                        output = _.isArray(result) ? _this._formatOutput(result[0]) : _this._formatOutput(result);
-                        handleResult(err, output);
-                    }
-                }
+				// TODO remove the length check once this is fixed in geth
+				var output;
+				if(_.isArray(result) && result.length > 1) {
+					_.each(result, (function(r) { handleResult(err, _this._formatOutput(r)); }));
+				} else {
+					output = _.isArray(result) ? _this._formatOutput(result[0]) : _this._formatOutput(result);
+					handleResult(err, output);
+				}
             });
         } else if (_.isFunction(_this.callback)) {
             _this.callback(err, null, _this);
