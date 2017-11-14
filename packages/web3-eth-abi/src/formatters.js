@@ -28,20 +28,6 @@ var SolidityParam = require('./param');
 
 
 
-
-
-/**
- * Takes and input transforms it into BN and if it is negative value, into two's complement
- *
- * @method toTwosComplement
- * @param {Number|String|BN} number
- * @return {String}
- */
-var toTwosComplement = function (number) {
-    return utils.toBN(number).toTwos(256).toString(16, 64);
-};
-
-
 /**
  * Formats input value to byte representation of int
  * If value is negative, return it's two's complement
@@ -55,7 +41,7 @@ var formatInputInt = function (value) {
     if(_.isNumber(value)) {
         value = Math.trunc(value);
     }
-    return new SolidityParam(toTwosComplement(value));
+    return new SolidityParam(utils.toTwosComplement(value).replace('0x',''));
 };
 
 /**
@@ -66,7 +52,7 @@ var formatInputInt = function (value) {
  * @returns {SolidityParam}
  */
 var formatInputBytes = function (value) {
-    if(!utils.isHex(value)) {
+    if(!utils.isHexStrict(value)) {
         throw new Error('Given parameter is not bytes: "'+ value + '"');
     }
 
@@ -74,6 +60,10 @@ var formatInputBytes = function (value) {
 
     if(result.length % 2 !== 0) {
         throw new Error('Given parameter bytes has an invalid length: "'+ value + '"');
+    }
+
+    if (result.length > 64) {
+        throw new Error('Given parameter bytes is too long: "' + value + '"');
     }
 
     var l = Math.floor((result.length + 63) / 64);
@@ -89,7 +79,7 @@ var formatInputBytes = function (value) {
  * @returns {SolidityParam}
  */
 var formatInputDynamicBytes = function (value) {
-    if(!utils.isHex(value)) {
+    if(!utils.isHexStrict(value)) {
         throw new Error('Given parameter is not bytes: "'+ value + '"');
     }
 
@@ -172,7 +162,7 @@ var formatOutputInt = function (param) {
 var formatOutputUInt = function (param, name) {
     var value = param.staticPart();
 
-    if(!value) {
+    if(!value && param.rawValue) {
         throw new Error('Couldn\'t decode '+ name +' from ABI: 0x'+ param.rawValue);
     }
 
@@ -271,5 +261,5 @@ module.exports = {
     formatOutputDynamicBytes: formatOutputDynamicBytes,
     formatOutputString: formatOutputString,
     formatOutputAddress: formatOutputAddress,
-    toTwosComplement: toTwosComplement
+    toTwosComplement: utils.toTwosComplement
 };
